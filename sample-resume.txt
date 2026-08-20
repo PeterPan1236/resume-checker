@@ -1,0 +1,30 @@
+JORDAN LEE
+jordan.lee@example.com | +1 415 555 0199 | San Francisco, CA
+linkedin.com/in/jordanlee
+
+SUMMARY
+Hard-working software engineer and team player with a proven track record. Passionate about
+building great products.
+
+EXPERIENCE
+
+Senior Software Engineer, Northwind Systems
+Mar 2021 - Present
+- Responsible for the payments backend service used by the checkout flow.
+- Worked on migrating the legacy monolith to microservices with the platform team over
+  eighteen months, which involved a lot of coordination with several other teams and also
+  required writing migration runbooks and rollback plans for each of the twelve services.
+- Helped reduce API latency from 800ms to 120ms by adding a Redis cache layer.
+- I mentored two junior engineers.
+
+Software Engineer, Cobalt Labs
+2018 - 2021
+- Built internal tooling.
+- Assisted with code reviews and deployment.
+- Involved in the migration to Kubernetes.
+
+EDUCATION
+B.S. Computer Science, State University, 2018
+
+SKILLS
+Python, JavaScript, React, PostgreSQL, Docker, AWS, Git

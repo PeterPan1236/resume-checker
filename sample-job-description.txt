@@ -1,0 +1,37 @@
+Senior Backend Engineer — Payments Platform
+Northstar Commerce · San Francisco, CA (hybrid, 3 days on site)
+
+About the team
+The Payments Platform team owns authorization, settlement, ledgering and payout for every
+transaction on Northstar. We process roughly 40M transactions a month across nine markets.
+
+Minimum qualifications
+- 7+ years of professional backend engineering experience, at least 3 of them on payments,
+  billing, ledger or another financially consequential system.
+- Production experience with Go or Java. We are a Go shop; strong Java engineers who want to
+  switch are welcome.
+- Demonstrated ownership of a service in production: on-call, incident response, postmortems.
+- Experience designing and evolving relational schemas at scale (PostgreSQL preferred),
+  including online migrations against live traffic.
+- Practical experience with idempotency, exactly-once semantics and reconciliation of
+  distributed financial state.
+- Experience integrating third-party payment providers such as Stripe, Adyen or Braintree.
+- Track record of measurable reliability or latency improvements, with numbers you can defend.
+- Strong written communication: design docs, RFCs, incident writeups.
+
+Preferred qualifications
+- Experience with Kubernetes and Terraform in a production environment.
+- Exposure to PCI DSS scope reduction or SOX controls.
+- Experience mentoring engineers or leading a small team.
+- Familiarity with event-driven architectures using Kafka.
+- Multi-currency or cross-border payments experience.
+
+What you will do
+- Design and ship services that move money correctly under partial failure.
+- Own the reconciliation pipeline end to end, from ingestion through ledger close.
+- Partner with Risk, Treasury and Compliance on controls and audit evidence.
+- Raise the reliability bar: SLOs, error budgets, load testing before peak season.
+
+Benefits
+Competitive salary, equity, 401k match, comprehensive medical and dental, generous parental
+leave, annual learning budget. Northstar Commerce is an equal opportunity employer.

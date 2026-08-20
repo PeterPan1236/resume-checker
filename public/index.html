@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Resume Checker — Role-aware screening report</title>
+<meta name="description" content="Role-aware resume screening: deterministic ATS checks plus a hiring-manager review, delivered as a prioritized action report.">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="report.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="wrap">
+    <a class="brand" href="/">
+      <span class="mark">RC</span>
+      <span>
+        <div class="brand-name">Resume Checker</div>
+        <div class="brand-sub">Screening &amp; readiness report</div>
+      </span>
+    </a>
+    <span class="topbar-spacer"></span>
+    <span class="badge">Live demo</span>
+  </div>
+</div>
+
+<div class="wrap">
+  <header class="hero">
+    <h1>See the resume the way a screener sees it.</h1>
+    <p class="sub">
+      Every submission runs two passes: a deterministic rule engine that reproduces what an
+      applicant tracking system can and cannot read, and a hiring-manager review of the actual
+      content. The result is a written assessment: scorecard, requirement-by-requirement compliance, and a prioritized remediation list.
+    </p>
+    <ul class="hero-points">
+      <li><b>10</b> role profiles</li>
+      <li><b>5</b> seniority levels</li>
+      <li><b>6</b> scored dimensions</li>
+      <li>Requirement-by-requirement check</li>
+      <li>Print-ready assessment report</li>
+    </ul>
+  </header>
+
+  <main>
+    <section class="panel" id="form-panel">
+      <form id="check-form">
+
+        <div class="step-block">
+          <div class="step">
+            <span class="step-num">1</span>
+            <span class="step-label">Target the review</span>
+            <span class="step-hint">Role and level change both the scoring rubric and the advice.</span>
+          </div>
+          <div class="row">
+            <label class="field">
+              <span>Target role</span>
+              <select id="jobId" name="jobId" required></select>
+            </label>
+            <label class="field">
+              <span>Seniority level</span>
+              <select id="seniority" name="seniority" required></select>
+            </label>
+          </div>
+        </div>
+
+        <div class="step-block">
+          <div class="step">
+            <span class="step-num">2</span>
+            <span class="step-label">Provide the resume</span>
+            <span class="step-hint">Nothing is stored — the file is parsed in memory and discarded.</span>
+          </div>
+
+          <div class="tabs" role="tablist">
+            <button type="button" class="tab active" data-mode="file" role="tab" aria-selected="true">Upload file</button>
+            <button type="button" class="tab" data-mode="text" role="tab" aria-selected="false">Paste text</button>
+          </div>
+
+          <div id="mode-file" class="mode">
+            <label id="drop" class="drop">
+              <input type="file" id="resume" name="resume" accept=".pdf,.docx,.doc,.txt,.md">
+              <strong>Drop a resume here, or click to browse</strong>
+              <small>PDF, DOCX, DOC, TXT or MD — up to 8 MB</small>
+              <span id="filename" class="filename"></span>
+            </label>
+          </div>
+
+          <div id="mode-text" class="mode hidden">
+            <textarea id="text" name="text" rows="12" placeholder="Paste the full text of the resume here…"></textarea>
+          </div>
+
+          <p class="drop-alt">
+            No file handy? <button type="button" class="linkbtn" id="load-sample">Load the sample resume</button>
+            to see a full report.
+          </p>
+        </div>
+
+        <div class="step-block">
+          <div class="step">
+            <span class="step-num">3</span>
+            <span class="step-label">Add the job posting</span>
+            <span class="step-hint">Optional — every stated requirement gets checked against the resume, one by one.</span>
+          </div>
+
+          <div class="tabs" role="tablist">
+            <button type="button" class="tab active" data-jd-mode="text" role="tab" aria-selected="true">Paste text</button>
+            <button type="button" class="tab" data-jd-mode="file" role="tab" aria-selected="false">Upload file</button>
+          </div>
+
+          <div id="jd-mode-text" class="mode">
+            <textarea id="jobDescription" name="jobDescription" rows="6" placeholder="Paste the posting being applied to…"></textarea>
+          </div>
+
+          <div id="jd-mode-file" class="mode hidden">
+            <label id="jd-drop" class="drop">
+              <input type="file" id="jdFile" name="jobDescriptionFile" accept=".pdf,.docx,.doc,.txt,.md">
+              <strong>Drop the job posting here, or click to browse</strong>
+              <small>PDF, DOCX, DOC, TXT or MD — up to 8 MB</small>
+              <span id="jd-filename" class="filename"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="actions">
+          <label class="check">
+            <input type="checkbox" id="deep" checked>
+            <span>
+              Deep AI analysis
+              <small>Adds rewrites, red flags and an action plan. Takes 15–30 seconds.</small>
+            </span>
+          </label>
+          <button type="submit" class="primary" id="submit">Run the check</button>
+        </div>
+        <p id="error" class="error hidden"></p>
+      </form>
+    </section>
+
+    <section id="loading" class="panel hidden">
+      <div class="spinner"></div>
+      <p id="loading-text">Extracting text and running checks…</p>
+      <p id="loading-sub">Rule engine first, then the hiring-manager review.</p>
+    </section>
+
+    <section id="results" class="hidden"></section>
+  </main>
+
+  <footer class="site">
+    Rule engine is deterministic — the same resume always scores the same. Deep analysis is generated
+    by a model and should be read as a screener's opinion, not a guarantee.
+  </footer>
+</div>
+
+<script src="app.js"></script>
+<script src="report.js"></script>
+</body>
+</html>

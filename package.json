@@ -1,0 +1,22 @@
+{
+  "name": "resume-checker",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node --env-file=../.env server.js",
+    "dev": "node --watch --env-file=../.env server.js",
+    "deploy": "wrangler deploy",
+    "cf:dev": "wrangler dev"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "express": "^4.21.2",
+    "mammoth": "^1.8.0",
+    "multer": "^2.2.0",
+    "unpdf": "^1.8.1"
+  },
+  "devDependencies": {
+    "wrangler": "^4.124.0"
+  }
+}
