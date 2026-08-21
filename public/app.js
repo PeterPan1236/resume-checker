@@ -285,7 +285,35 @@ function buildRecommendations(rules, analysis, criteria) {
     });
   });
 
-  return recs.sort((a, b) => a.order - b.order);
+  // Rank first so that when the same problem arrives from two feeds, the survivor
+  // is the higher-priority one — a deterministic rule finding beats the model
+  // restating it in its own words.
+  const ranked = recs.sort(
+    (a, b) => a.order - b.order || SEV_RANK[a.severity] - SEV_RANK[b.severity]
+  );
+
+  const kept = [];
+  const keptTerms = [];
+  for (const r of ranked) {
+    const terms = new Set(
+      norm(`${r.title} ${r.fix || ''}`)
+        .split(' ')
+        .filter((w) => w.length > 3)
+    );
+    if (!terms.size) {
+      kept.push(r);
+      continue;
+    }
+    const echo = keptTerms.some((prev) => {
+      const overlap = [...terms].filter((t) => prev.has(t)).length;
+      return overlap / Math.min(terms.size, prev.size) >= 0.6;
+    });
+    if (echo) continue;
+    keptTerms.push(terms);
+    kept.push(r);
+  }
+
+  return kept;
 }
 
 function plainTextReport(data) {
