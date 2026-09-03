@@ -200,3 +200,5 @@ button.ghost:hover { border-color: var(--accent); color: var(--accent); }
 #loading-text { margin: 0; font-weight: 600; color: var(--text); }
 #loading-sub { margin: 4px 0 0; font-size: 13px; color: var(--faint); }
 
+
+.storage-note { margin-top: 12px; }

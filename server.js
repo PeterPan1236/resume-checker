@@ -7,10 +7,17 @@ import { extractText, ExtractError } from './lib/extract.js';
 import { runRules } from './lib/rules.js';
 import { deepAnalyze } from './lib/analyze.js';
 import { listJobs, listSeniority, JOB_PROFILES, SENIORITY } from './lib/jobs.js';
+import { openLocalD1 } from './lib/sqlite-d1.js';
+import { buildSubmission, saveSubmission } from './lib/store.js';
+import { handleAdmin, isAdminPath } from './lib/admin.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.RESUME_PORT || 3100;
+const DB_PATH = process.env.RESUME_DB || path.join(__dirname, 'data', 'submissions.sqlite');
+
+const db = openLocalD1(DB_PATH);
+await db.exec(await readFile(path.join(__dirname, 'migrations', '0001_submissions.sql'), 'utf8'));
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -24,6 +31,12 @@ const uploadFields = upload.fields([
 
 app.use(express.json({ limit: '1mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Workers' Assets binding drops the .html extension, so /admin is the canonical
+// path there. Express answers the same path so both hosts match.
+app.get('/admin', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
 
 app.get('/api/options', (_req, res) => {
   res.json({ jobs: listJobs(), seniority: listSeniority() });
@@ -89,27 +102,61 @@ app.post('/api/check', uploadFields, async (req, res) => {
     }
 
     const { bullets, ...rulesOut } = rules;
-    res.json({
-      meta: {
-        jobId,
-        jobLabel: JOB_PROFILES[jobId].label,
-        seniority,
-        fileKind: kind,
-        pages,
-        filename: resumeFile?.originalname || null,
-        hasJobDescription: jobDescription.trim().length > 40,
-        jobDescriptionSource,
-        warnings: [...warnings, ...jdWarnings]
-      },
-      rules: rulesOut,
-      analysis,
-      analysisError
-    });
+    const meta = {
+      jobId,
+      jobLabel: JOB_PROFILES[jobId].label,
+      seniority,
+      fileKind: kind,
+      pages,
+      filename: resumeFile?.originalname || null,
+      hasJobDescription: jobDescription.trim().length > 40,
+      jobDescriptionSource,
+      warnings: [...warnings, ...jdWarnings]
+    };
+
+    // A storage failure must not cost the user their report.
+    try {
+      await saveSubmission(
+        db,
+        buildSubmission({
+          meta,
+          rules: rulesOut,
+          analysis,
+          analysisError,
+          deep,
+          text,
+          jobDescription,
+          host: 'node',
+          userAgent: req.get('user-agent') || null
+        })
+      );
+    } catch (storeErr) {
+      console.error('Failed to store submission:', storeErr);
+    }
+
+    res.json({ meta, rules: rulesOut, analysis, analysisError });
   } catch (err) {
     if (err instanceof ExtractError) return res.status(400).json({ error: err.message });
     if (err.code === 'LIMIT_FILE_SIZE') return res.status(400).json({ error: 'File is larger than 8 MB.' });
     console.error(err);
     res.status(500).json({ error: err.message || 'Something went wrong while checking the resume.' });
+  }
+});
+
+app.all(/^\/api\/admin(\/.*)?$/, async (req, res) => {
+  if (!isAdminPath(req.path)) return res.status(404).json({ error: 'Unknown admin endpoint.' });
+  try {
+    const { status, body } = await handleAdmin({
+      db,
+      method: req.method,
+      url: new URL(req.originalUrl, `http://localhost:${PORT}`),
+      authorization: req.get('authorization'),
+      adminToken: process.env.ADMIN_TOKEN
+    });
+    res.status(status).json(body);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'Admin query failed.' });
   }
 });
 

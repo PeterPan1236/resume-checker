@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Resume Checker — Admin</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="wrap wrap-wide">
+    <a class="brand" href="/">
+      <span class="mark">RC</span>
+      <span>
+        <div class="brand-name">Resume Checker</div>
+        <div class="brand-sub">Submission analytics</div>
+      </span>
+    </a>
+    <span class="topbar-spacer"></span>
+    <span class="badge">Admin</span>
+    <button id="signOut" class="ghost hidden" type="button">Sign out</button>
+  </div>
+</div>
+
+<main class="wrap wrap-wide">
+
+  <section id="gate" class="panel gate">
+    <div class="panel-head">
+      <h2>Admin sign-in</h2>
+    </div>
+    <p class="panel-note">
+      This console shows stored resumes in full, including personal contact details.
+      Enter the <code>ADMIN_TOKEN</code> configured for this deployment.
+    </p>
+    <form id="gateForm" class="gate-form">
+      <label class="field">
+        <span>Admin token</span>
+        <input id="tokenInput" type="password" autocomplete="off" placeholder="ADMIN_TOKEN">
+      </label>
+      <button class="primary" type="submit">Unlock</button>
+    </form>
+    <p id="gateError" class="error hidden"></p>
+  </section>
+
+  <div id="console" class="hidden">
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Overview</h2>
+        <p class="panel-note">Aggregates across stored submissions.</p>
+        <span class="topbar-spacer"></span>
+        <label class="field inline">
+          <span>Window</span>
+          <select id="statsRange">
+            <option value="">All time</option>
+            <option value="7">Last 7 days</option>
+            <option value="30" selected>Last 30 days</option>
+            <option value="90">Last 90 days</option>
+          </select>
+        </label>
+      </div>
+
+      <div id="tiles" class="tiles"></div>
+
+      <div class="split">
+        <figure class="figure">
+          <figcaption>
+            <b>Overall score distribution</b>
+            <span>Submissions per score band</span>
+          </figcaption>
+          <div id="distribution" class="bars"></div>
+        </figure>
+
+        <figure class="figure">
+          <figcaption>
+            <b>Average dimension scores</b>
+            <span>Where resumes lose points</span>
+          </figcaption>
+          <div id="dimensions" class="bars"></div>
+        </figure>
+      </div>
+
+      <div class="split">
+        <figure class="figure">
+          <figcaption><b>By role</b><span>Volume and average score</span></figcaption>
+          <div id="byRole" class="table-scroll"></div>
+        </figure>
+        <figure class="figure">
+          <figcaption><b>By level</b><span>Volume and average score</span></figcaption>
+          <div id="bySeniority" class="table-scroll"></div>
+        </figure>
+      </div>
+
+      <figure class="figure">
+        <figcaption>
+          <b>Most common missing keywords</b>
+          <span>Across the 500 most recent submissions</span>
+        </figcaption>
+        <div id="keywords" class="chips"></div>
+      </figure>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Submissions</h2>
+        <span id="count" class="count-tag"></span>
+      </div>
+
+      <div class="filters">
+        <label class="field inline"><span>Role</span><select id="fRole"><option value="">All</option></select></label>
+        <label class="field inline"><span>Level</span><select id="fSeniority"><option value="">All</option></select></label>
+        <label class="field inline"><span>Input</span>
+          <select id="fSource">
+            <option value="">All</option>
+            <option value="file">File</option>
+            <option value="paste">Paste</option>
+          </select>
+        </label>
+        <label class="field inline"><span>Min score</span><input id="fMin" type="number" min="0" max="100" placeholder="0"></label>
+        <label class="field inline"><span>Max score</span><input id="fMax" type="number" min="0" max="100" placeholder="100"></label>
+        <label class="field inline grow"><span>Search text / filename</span><input id="fQuery" type="search" placeholder="e.g. Kubernetes"></label>
+        <button id="applyFilters" class="primary" type="button">Apply</button>
+        <button id="resetFilters" class="ghost" type="button">Reset</button>
+      </div>
+
+      <div id="tableWrap" class="table-scroll"></div>
+
+      <div class="pager">
+        <button id="prevPage" class="ghost" type="button">Previous</button>
+        <span id="pageInfo" class="panel-note"></span>
+        <button id="nextPage" class="ghost" type="button">Next</button>
+      </div>
+    </section>
+
+    <p id="consoleError" class="error hidden"></p>
+  </div>
+</main>
+
+<aside id="drawer" class="drawer hidden" aria-hidden="true">
+  <div class="drawer-head">
+    <div>
+      <div id="drawerTitle" class="drawer-title"></div>
+      <div id="drawerSub" class="drawer-sub"></div>
+    </div>
+    <span class="topbar-spacer"></span>
+    <button id="drawerDelete" class="ghost danger" type="button">Delete</button>
+    <button id="drawerClose" class="ghost" type="button">Close</button>
+  </div>
+  <div id="drawerBody" class="drawer-body"></div>
+</aside>
+<div id="scrim" class="scrim hidden"></div>
+
+<script src="admin.js"></script>
+</body>
+</html>

@@ -7,10 +7,12 @@
     "start": "node --env-file=../.env server.js",
     "dev": "node --watch --env-file=../.env server.js",
     "deploy": "wrangler deploy",
-    "cf:dev": "wrangler dev"
+    "cf:dev": "wrangler dev",
+    "d1:create": "wrangler d1 create resume-checker-db",
+    "d1:migrate": "wrangler d1 migrations apply resume-checker-db --remote",
+    "d1:migrate:local": "wrangler d1 migrations apply resume-checker-db --local"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
     "express": "^4.21.2",
     "mammoth": "^1.8.0",
     "multer": "^2.2.0",
@@ -18,5 +20,8 @@
   },
   "devDependencies": {
     "wrangler": "^4.124.0"
+  },
+  "engines": {
+    "node": ">=22.5.0"
   }
 }

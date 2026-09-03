@@ -2,6 +2,8 @@ import { extractText, ExtractError } from '../lib/extract.js';
 import { runRules } from '../lib/rules.js';
 import { deepAnalyze } from '../lib/analyze.js';
 import { listJobs, listSeniority, JOB_PROFILES, SENIORITY } from '../lib/jobs.js';
+import { buildSubmission, saveSubmission } from '../lib/store.js';
+import { handleAdmin, isAdminPath } from '../lib/admin.js';
 import sampleResume from '../sample-resume.txt';
 import sampleJobDescription from '../sample-job-description.txt';
 
@@ -29,7 +31,7 @@ function filePart(form, name) {
   return v && typeof v !== 'string' && v.size > 0 ? v : null;
 }
 
-async function handleCheck(request) {
+async function handleCheck(request, env, ctx) {
   const form = await request.formData();
 
   const jobId = JOB_PROFILES[field(form, 'jobId')] ? field(form, 'jobId') : 'general';
@@ -78,22 +80,37 @@ async function handleCheck(request) {
   }
 
   const { bullets, ...rulesOut } = rules;
-  return json({
-    meta: {
-      jobId,
-      jobLabel: JOB_PROFILES[jobId].label,
-      seniority,
-      fileKind: kind,
-      pages,
-      filename: resumeFile?.name || null,
-      hasJobDescription: jobDescription.trim().length > 40,
-      jobDescriptionSource,
-      warnings: [...warnings, ...jdWarnings]
-    },
-    rules: rulesOut,
-    analysis,
-    analysisError
-  });
+  const meta = {
+    jobId,
+    jobLabel: JOB_PROFILES[jobId].label,
+    seniority,
+    fileKind: kind,
+    pages,
+    filename: resumeFile?.name || null,
+    hasJobDescription: jobDescription.trim().length > 40,
+    jobDescriptionSource,
+    warnings: [...warnings, ...jdWarnings]
+  };
+
+  // Storing the submission happens after the response is handed back, and a
+  // storage failure must not cost the user their report.
+  if (env.DB) {
+    const row = buildSubmission({
+      meta,
+      rules: rulesOut,
+      analysis,
+      analysisError,
+      deep,
+      text,
+      jobDescription,
+      host: 'worker',
+      userAgent: request.headers.get('user-agent')
+    });
+    const write = saveSubmission(env.DB, row).catch((err) => console.error('Failed to store submission:', err));
+    ctx.waitUntil(write);
+  }
+
+  return json({ meta, rules: rulesOut, analysis, analysisError });
 }
 
 export default {
@@ -115,7 +132,18 @@ export default {
       }
 
       if (url.pathname === '/api/check' && request.method === 'POST') {
-        return await handleCheck(request);
+        return await handleCheck(request, env, ctx);
+      }
+
+      if (isAdminPath(url.pathname)) {
+        const { status, body } = await handleAdmin({
+          db: env.DB,
+          method: request.method,
+          url,
+          authorization: request.headers.get('authorization'),
+          adminToken: env.ADMIN_TOKEN
+        });
+        return json(body, status);
       }
     } catch (err) {
       if (err instanceof ExtractError) return json({ error: err.message }, 400);

@@ -7,3 +7,4 @@ node_modules/
 srv.log
 srv.err
 *.tmp
+data/

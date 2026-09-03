@@ -7,6 +7,11 @@ Role-aware resume screening. Two layers run on every submission:
 
 If the model call fails, the rule-based report is still returned in full and the UI says so.
 
+The model is called over plain `fetch` against the Gemini REST endpoint rather than
+through `@google/generative-ai`: that SDK pulls in Node internals that hang the Workers
+runtime. The call is bounded by `DEEP_TIMEOUT_MS` (default 45000) so a stalled model
+never holds a request open — past the deadline the rules-only report is returned.
+
 ## Run
 
 ```
@@ -17,15 +22,28 @@ npm start           # http://localhost:3100
 
 `npm start` reads `../.env`, which must contain `GEMINI_API_KEY`. Override the port with `RESUME_PORT`.
 
+Every submission is stored (see **Stored submissions**). Locally that is a SQLite
+file at `data/submissions.sqlite`, created and migrated on boot; override the path
+with `RESUME_DB`. Set `ADMIN_TOKEN` in `../.env` to open the admin console at
+`/admin` — without it the admin API stays shut.
+
 ## Deploy (Cloudflare Workers)
 
 The same `lib/` code runs in two hosts. `server.js` is the local Express host; `src/worker.js` is the Workers host, which serves `public/` through the Assets binding and handles `/api/*` itself. PDF text extraction uses `unpdf` so it works in both.
 
 ```
 npx wrangler secret put GEMINI_API_KEY   # once per worker
+npx wrangler secret put ADMIN_TOKEN      # gates /api/admin/*
+npm run d1:create                        # prints the database_id
+# paste that id into wrangler.jsonc, replacing REPLACE_WITH_D1_DATABASE_ID
+npm run d1:migrate                       # applies migrations/ to the remote D1
 npm run deploy
 npm run cf:dev                           # local Workers runtime on :8787
 ```
+
+`npm run d1:migrate:local` applies the same migration to wrangler's local D1 for
+`cf:dev`. The Worker only writes submissions when the `DB` binding is present; if
+it is missing, checks still work and storage is skipped.
 
 `wrangler.jsonc` holds the config. `nodejs_compat` is required — `lib/extract.js` uses `Buffer`, and `lib/analyze.js` reads `process.env.GEMINI_API_KEY`, which Workers populates from secrets and vars.
 
@@ -66,6 +84,54 @@ Six weighted dimensions produce the overall score:
 | Language quality | 14% | duty-language, filler, first person, passive voice |
 | Length | 5% | estimated pages against the target for the level |
 
+## Stored submissions
+
+Every completed check is written to a `submissions` row — the resume text, the job
+description, the full report JSON, and a set of flattened columns (scores, dimension
+breakdown, metrics, requirement tallies, top missing keywords) that the admin
+queries filter and aggregate on without parsing the JSON. Schema:
+`migrations/0001_submissions.sql`.
+
+The same code path runs on both hosts. `lib/store.js` speaks the D1 API and nothing
+else; Workers hand it `env.DB`, and Express hands it `lib/sqlite-d1.js`, a node:sqlite
+adapter implementing the slice of that API the store uses. A storage failure is
+logged and swallowed — the user still gets their report.
+
+**Retention is capped.** The table keeps the newest `RETENTION_LIMIT` submissions
+(default 500) and prunes the rest on every insert, so stored resumes rotate out
+instead of accumulating without limit. Raise or lower it with the `RETENTION_LIMIT`
+environment variable or Worker var.
+
+**This table holds personal data.** Resumes carry names, emails, phone numbers and
+employment history, and they are stored verbatim. Anything reachable at `/api/admin/*`
+is therefore gated on `ADMIN_TOKEN`, and the gate fails closed: with no token
+configured the endpoints return 503 rather than serving rows. Decide on a retention
+period before pointing real traffic at this.
+
+## Admin console
+
+`/admin` (`/admin.html` also works locally) — enter `ADMIN_TOKEN` to unlock. The token
+lives in `../.env` locally and as a Worker secret in production; it is never committed
+and never appears in client-side code. It holds the token in `sessionStorage`
+only, and sends it as a bearer token. The page shows KPI tiles, the overall score
+distribution, average scores per dimension, role and level breakdowns, the most
+common missing keywords, and a filterable, paginated submission table. Clicking a row
+opens the full record — scores, facts, the stored resume text, the job description, and
+the deep AI analysis rendered as sections (verdict and screen outcome, role fit with
+evidence for and against, ordered action plan, per-requirement check, red flags, section
+review, bullet rewrites shown before/after, missing content, interview exposure), with
+the raw analysis JSON behind a disclosure. Deletion is available per record.
+
+Endpoints, all requiring `Authorization: Bearer <ADMIN_TOKEN>`:
+
+| Endpoint | Notes |
+|---|---|
+| `GET /api/admin/ping` | token check |
+| `GET /api/admin/submissions` | filters: `jobId`, `seniority`, `source`, `minScore`, `maxScore`, `q`, `sort`, `dir`, `limit`, `offset` |
+| `GET /api/admin/submissions/:id` | full record including resume text and report |
+| `DELETE /api/admin/submissions/:id` | permanent |
+| `GET /api/admin/stats?days=30` | aggregates; omit `days` for all time |
+
 ## API
 
 `GET /api/options` — role and level lists for the form.
@@ -87,9 +153,15 @@ Returns `{ meta, rules, analysis, analysisError }`.
 
 ```
 server.js          Express app, upload handling, /api routes
+src/worker.js      Cloudflare Workers host for the same lib/
 lib/extract.js     PDF / DOCX / DOC / TXT text extraction
 lib/jobs.js        Role profiles and level definitions
 lib/rules.js       Deterministic checks and scoring
 lib/analyze.js     Gemini call, prompt, response schema, retry
+lib/store.js       Submission row shape, inserts, admin queries
+lib/sqlite-d1.js   node:sqlite adapter with the D1 API, for local runs
+lib/admin.js       Token check and admin endpoints, shared by both hosts
+migrations/        D1 schema
 public/            Single-page frontend, no build step
+public/admin.html  Admin console (token-gated)
 ```

@@ -8,6 +8,14 @@
     "directory": "./public",
     "binding": "ASSETS"
   },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "resume-checker-db",
+      "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+      "migrations_dir": "migrations"
+    }
+  ],
   "rules": [
     { "type": "Text", "globs": ["**/*.txt"], "fallthrough": true }
   ],
