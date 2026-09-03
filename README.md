@@ -97,15 +97,6 @@ else; Workers hand it `env.DB`, and Express hands it `lib/sqlite-d1.js`, a node:
 adapter implementing the slice of that API the store uses. A storage failure is
 logged and swallowed — the user still gets their report.
 
-
-| Endpoint | Notes |
-|---|---|
-| `GET /api/admin/ping` | token check |
-| `GET /api/admin/submissions` | filters: `jobId`, `seniority`, `source`, `minScore`, `maxScore`, `q`, `sort`, `dir`, `limit`, `offset` |
-| `GET /api/admin/submissions/:id` | full record including resume text and report |
-| `DELETE /api/admin/submissions/:id` | permanent |
-| `GET /api/admin/stats?days=30` | aggregates; omit `days` for all time |
-
 ## API
 
 `GET /api/options` — role and level lists for the form.
