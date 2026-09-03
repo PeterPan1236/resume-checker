@@ -12,7 +12,7 @@
     {
       "binding": "DB",
       "database_name": "resume-checker-db",
-      "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+      "database_id": "0899e42a-9b6b-41e6-9826-842b487d79ce",
       "migrations_dir": "migrations"
     }
   ],
