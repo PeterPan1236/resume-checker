@@ -97,32 +97,6 @@ else; Workers hand it `env.DB`, and Express hands it `lib/sqlite-d1.js`, a node:
 adapter implementing the slice of that API the store uses. A storage failure is
 logged and swallowed — the user still gets their report.
 
-**Retention is capped.** The table keeps the newest `RETENTION_LIMIT` submissions
-(default 500) and prunes the rest on every insert, so stored resumes rotate out
-instead of accumulating without limit. Raise or lower it with the `RETENTION_LIMIT`
-environment variable or Worker var.
-
-**This table holds personal data.** Resumes carry names, emails, phone numbers and
-employment history, and they are stored verbatim. Anything reachable at `/api/admin/*`
-is therefore gated on `ADMIN_TOKEN`, and the gate fails closed: with no token
-configured the endpoints return 503 rather than serving rows. Decide on a retention
-period before pointing real traffic at this.
-
-## Admin console
-
-`/admin` (`/admin.html` also works locally) — enter `ADMIN_TOKEN` to unlock. The token
-lives in `../.env` locally and as a Worker secret in production; it is never committed
-and never appears in client-side code. It holds the token in `sessionStorage`
-only, and sends it as a bearer token. The page shows KPI tiles, the overall score
-distribution, average scores per dimension, role and level breakdowns, the most
-common missing keywords, and a filterable, paginated submission table. Clicking a row
-opens the full record — scores, facts, the stored resume text, the job description, and
-the deep AI analysis rendered as sections (verdict and screen outcome, role fit with
-evidence for and against, ordered action plan, per-requirement check, red flags, section
-review, bullet rewrites shown before/after, missing content, interview exposure), with
-the raw analysis JSON behind a disclosure. Deletion is available per record.
-
-Endpoints, all requiring `Authorization: Bearer <ADMIN_TOKEN>`:
 
 | Endpoint | Notes |
 |---|---|
