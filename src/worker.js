@@ -11,10 +11,10 @@ import sampleJobDescription from '../sample-job-description.txt';
 
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 
-function json(body, status = 200) {
+function json(body, status = 200, extraHeaders) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 'content-type': 'application/json; charset=utf-8' }
+    headers: { 'content-type': 'application/json; charset=utf-8', ...(extraHeaders || {}) }
   });
 }
 
@@ -173,14 +173,15 @@ export default {
       }
 
       if (isAdminPath(url.pathname)) {
-        const { status, body } = await handleAdmin({
+        const { status, body, headers } = await handleAdmin({
           db: env.DB,
           method: request.method,
           url,
           authorization: request.headers.get('authorization'),
-          adminToken: env.ADMIN_TOKEN
+          adminToken: env.ADMIN_TOKEN,
+          ip: clientIp(request)
         });
-        return json(body, status);
+        return json(body, status, headers);
       }
     } catch (err) {
       if (err instanceof ExtractError) return json({ error: err.message }, 400);

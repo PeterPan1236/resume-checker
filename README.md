@@ -65,6 +65,26 @@ it unset unless a proxy you control sits in front, since with it on anyone can
 spoof `X-Forwarded-For`. Locally every request arrives from `::1`, so unique
 visitors reads 1 no matter how many checks you run.
 
+## Admin rate limiting
+
+The admin token alone allows unlimited guesses, so failed authentications are
+counted per address in `admin_attempts` (`migrations/0003_admin_attempts.sql`).
+
+- Five failures inside a fifteen-minute window locks the address out for fifteen
+  minutes. The lockout doubles for each further failure, capped at one hour.
+- The lock is checked **before** the token, so a locked-out caller learns nothing
+  about whether its guess was correct — the correct token gets 429 too.
+- A successful authentication clears that address's history.
+- Responses carry `Retry-After`; a 401 reports `attemptsRemaining` so an honest
+  typo is recoverable rather than mysterious.
+- `GET /api/admin/lockouts` lists current and recent lockouts.
+
+Tunable with `ADMIN_MAX_FAILURES`, `ADMIN_LOCKOUT_MS` and `ADMIN_WINDOW_MS`.
+
+Rate limiting **fails open**: a storage error skips the check rather than locking
+every administrator out. The token is still required, so an open failure costs
+rate limiting, not authentication.
+
 ## Deploy (Cloudflare Workers)
 
 The same `lib/` code runs in two hosts. `server.js` is the local Express host; `src/worker.js` is the Workers host, which serves `public/` through the Assets binding and handles `/api/*` itself. PDF text extraction uses `unpdf` so it works in both.
@@ -175,6 +195,7 @@ Admin endpoints, all requiring `Authorization: Bearer $ADMIN_TOKEN`:
 | `POST /api/admin/counters/reset` | zeroes all, or one with `?name=` |
 | `GET /api/admin/visitors` | unique count plus rows; `?limit=` `?offset=` |
 | `DELETE /api/admin/visitors` | empties the visitor table |
+| `GET /api/admin/lockouts` | current and recent failed-attempt lockouts |
 
 ## Layout
 
@@ -191,6 +212,7 @@ lib/store.js       Submission row shape, inserts, admin queries
 lib/metrics.js     Activation counters and unique visitors
 lib/sqlite-d1.js   node:sqlite adapter with the D1 API, for local runs
 lib/admin.js       Token check and admin endpoints, shared by both hosts
+lib/rate-limit.js  Failed-attempt counting and lockout for the admin surface
 migrations/        D1 schema
 public/            Single-page frontend, no build step
 public/admin.html  Admin console (token-gated)

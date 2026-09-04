@@ -183,13 +183,15 @@ app.post('/api/cover-letter', async (req, res) => {
 app.all(/^\/api\/admin(\/.*)?$/, async (req, res) => {
   if (!isAdminPath(req.path)) return res.status(404).json({ error: 'Unknown admin endpoint.' });
   try {
-    const { status, body } = await handleAdmin({
+    const { status, body, headers } = await handleAdmin({
       db,
       method: req.method,
       url: new URL(req.originalUrl, `http://localhost:${PORT}`),
       authorization: req.get('authorization'),
-      adminToken: process.env.ADMIN_TOKEN
+      adminToken: process.env.ADMIN_TOKEN,
+      ip: req.ip
     });
+    if (headers) res.set(headers);
     res.status(status).json(body);
   } catch (err) {
     console.error(err);

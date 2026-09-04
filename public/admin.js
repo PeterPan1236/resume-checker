@@ -11,7 +11,13 @@
       headers: { ...(options.headers || {}), authorization: `Bearer ${state.token}` }
     });
     const body = await res.json().catch(() => ({}));
-    if (!res.ok) throw Object.assign(new Error(body.error || `Request failed (${res.status})`), { status: res.status });
+    if (!res.ok) {
+      throw Object.assign(new Error(body.error || `Request failed (${res.status})`), {
+        status: res.status,
+        retryAfter: body.retryAfter,
+        attemptsRemaining: body.attemptsRemaining
+      });
+    }
     return body;
   }
 
@@ -76,9 +82,42 @@
       await signIn(token);
     } catch (err) {
       state.token = '';
-      showGate(err.message);
+      // Say how many tries are left, and stop accepting more while locked out.
+      let msg = err.message;
+      if (err.status === 401 && Number.isFinite(err.attemptsRemaining)) {
+        msg += ` ${err.attemptsRemaining} attempt${err.attemptsRemaining === 1 ? '' : 's'} left before a temporary lockout.`;
+      }
+      showGate(msg);
+      if (err.status === 429 && err.retryAfter) lockGate(err.retryAfter);
     }
   });
+
+  // Counts the lockout down in place rather than leaving a stale message.
+  function lockGate(seconds) {
+    const btn = $('gateForm').querySelector('button[type="submit"]');
+    const input = $('tokenInput');
+    if (!btn) return;
+    let left = seconds;
+    btn.disabled = true;
+    input.disabled = true;
+    const label = btn.textContent;
+    const tick = () => {
+      if (left <= 0) {
+        clearInterval(timer);
+        btn.disabled = false;
+        input.disabled = false;
+        btn.textContent = label;
+        $('gateError').textContent = '';
+        return;
+      }
+      const m = Math.floor(left / 60);
+      const sec = left % 60;
+      btn.textContent = `Locked — ${m}:${String(sec).padStart(2, '0')}`;
+      left -= 1;
+    };
+    tick();
+    const timer = setInterval(tick, 1000);
+  }
 
   $('signOut').addEventListener('click', () => {
     sessionStorage.removeItem(TOKEN_KEY);
