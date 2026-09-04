@@ -27,6 +27,44 @@ file at `data/submissions.sqlite`, created and migrated on boot; override the pa
 with `RESUME_DB`. Set `ADMIN_TOKEN` in `../.env` to open the admin console at
 `/admin` — without it the admin API stays shut.
 
+## Cover letter
+
+After a check completes, **Write a cover letter** drafts a short letter from the
+same resume and posting. `lib/cover-letter.js` holds the prompt and a response
+schema that enforces the shape: a greeting, one opening line, one or two body
+paragraphs and a close, capped at 180 words. The cap is checked after generation
+rather than assumed, and the measured count is returned as `words`.
+
+The letter is built from the resume only. `assumptions` lists anything a reader
+might take as fact that the resume does not actually prove, so the user can check
+those before sending. With no job description supplied the letter falls back to
+the role profile and the UI says so.
+
+The request carries the resume text back from the check response rather than
+re-uploading the file or reading the stored submission, so generating a letter
+touches no stored data.
+
+## Activity metrics
+
+The admin console opens with an **Activity** panel:
+
+- **Run the check** and **Cover letter generated** — how many times each has been
+  activated. Either can be reset to zero from the panel; the row is kept and
+  stamped with `reset_at` rather than deleted.
+- **Unique visitors** — one row per distinct address, with a first-seen,
+  last-seen and run count. **Clear visitor list** empties it.
+
+Both live in their own tables (`migrations/0002_metrics.sql`), deliberately not
+in `submissions`: that table is pruned to `RETENTION_LIMIT` rows, so any count
+derived from it decays as old rows drop, and zeroing a counter must never mean
+deleting submission data.
+
+Addresses come from `req.ip` on Express and the `CF-Connecting-IP` header on
+Workers. Express reports the socket address unless `TRUST_PROXY` is set — leave
+it unset unless a proxy you control sits in front, since with it on anyone can
+spoof `X-Forwarded-For`. Locally every request arrives from `::1`, so unique
+visitors reads 1 no matter how many checks you run.
+
 ## Deploy (Cloudflare Workers)
 
 The same `lib/` code runs in two hosts. `server.js` is the local Express host; `src/worker.js` is the Workers host, which serves `public/` through the Assets binding and handles `/api/*` itself. PDF text extraction uses `unpdf` so it works in both.
@@ -112,7 +150,31 @@ logged and swallowed — the user still gets their report.
 | `jobDescription` | optional posting text |
 | `deep` | `false` to skip the model call and return rules only |
 
-Returns `{ meta, rules, analysis, analysisError }`.
+Returns `{ meta, rules, analysis, analysisError, resumeText }`. `resumeText` is the
+extracted text, echoed back so the cover letter can be generated without a second
+upload.
+
+`POST /api/cover-letter` — `application/json`:
+
+| Field | Notes |
+|---|---|
+| `text` | resume text, minimum 80 characters |
+| `jobId` | role profile id, defaults to `general` |
+| `seniority` | as above |
+| `jobDescription` | optional posting text |
+| `evidence` | optional strings the letter should lean on; the UI sends the strongest evidence the screen already found |
+
+Returns `{ letter }` with `greeting`, `opening`, `body[]`, `closing`, `signoff`,
+`name`, `proofPoints[]`, `assumptions[]`, `words`, `overLimit`, `usedJobDescription`.
+
+Admin endpoints, all requiring `Authorization: Bearer $ADMIN_TOKEN`:
+
+| Endpoint | Notes |
+|---|---|
+| `GET /api/admin/counters` | every counter, zero-filled if never run |
+| `POST /api/admin/counters/reset` | zeroes all, or one with `?name=` |
+| `GET /api/admin/visitors` | unique count plus rows; `?limit=` `?offset=` |
+| `DELETE /api/admin/visitors` | empties the visitor table |
 
 ## Layout
 
@@ -122,8 +184,11 @@ src/worker.js      Cloudflare Workers host for the same lib/
 lib/extract.js     PDF / DOCX / DOC / TXT text extraction
 lib/jobs.js        Role profiles and level definitions
 lib/rules.js       Deterministic checks and scoring
-lib/analyze.js     Gemini call, prompt, response schema, retry
+lib/gemini.js      Shared model client: timeout, retry, JSON salvage
+lib/analyze.js     Deep-analysis prompt and response schema
+lib/cover-letter.js Cover letter prompt, schema and word cap
 lib/store.js       Submission row shape, inserts, admin queries
+lib/metrics.js     Activation counters and unique visitors
 lib/sqlite-d1.js   node:sqlite adapter with the D1 API, for local runs
 lib/admin.js       Token check and admin endpoints, shared by both hosts
 migrations/        D1 schema

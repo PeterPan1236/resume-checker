@@ -65,7 +65,7 @@
     await api('/api/admin/ping');
     sessionStorage.setItem(TOKEN_KEY, token);
     showConsole();
-    await Promise.all([loadOptions(), loadStats(), loadSubmissions()]);
+    await Promise.all([loadOptions(), loadStats(), loadSubmissions(), loadActivity()]);
   }
 
   $('gateForm').addEventListener('submit', async (e) => {
@@ -173,6 +173,96 @@
             </tr>`).join('')}
         </tbody>
       </table>`;
+  }
+
+  // --- activity: counters + unique visitors --------------------------------
+
+  function renderActivity({ counters, visitors, unique }) {
+    const tiles = counters.map((c) => ({
+      label: c.label,
+      value: fmt(c.count),
+      note: c.resetAt ? `since reset ${when(c.resetAt)}` : c.updatedAt ? `last ${when(c.updatedAt)}` : 'never run'
+    }));
+    tiles.push({
+      label: 'Unique visitors',
+      value: fmt(unique),
+      note: 'distinct addresses'
+    });
+
+    $('activityTiles').innerHTML = tiles
+      .map((tile) => `
+        <div class="tile">
+          <div class="tile-label">${esc(tile.label)}</div>
+          <div class="tile-value">${esc(tile.value)}</div>
+          <div class="tile-note">${esc(tile.note)}</div>
+        </div>`)
+      .join('');
+
+    if (!visitors.length) {
+      $('visitorTable').innerHTML = '<p class="panel-note">No visitors recorded yet.</p>';
+      return;
+    }
+
+    $('visitorTable').innerHTML = `
+      <table class="grid">
+        <thead><tr><th>Address</th><th class="num">Runs</th><th>First seen</th><th>Last seen</th></tr></thead>
+        <tbody>
+          ${visitors
+            .map(
+              (v) => `<tr>
+                <td>${esc(v.ip)}</td>
+                <td class="num">${esc(v.hits)}</td>
+                <td>${esc(when(v.firstSeen))}</td>
+                <td>${esc(when(v.lastSeen))}</td>
+              </tr>`
+            )
+            .join('')}
+        </tbody>
+      </table>`;
+  }
+
+  async function loadActivity() {
+    try {
+      const [c, v] = await Promise.all([api('/api/admin/counters'), api('/api/admin/visitors?limit=200')]);
+      renderActivity({ counters: c.counters, visitors: v.visitors, unique: v.unique });
+    } catch (err) {
+      $('activityTiles').innerHTML = `<p class="panel-note">${esc(err.message)}</p>`;
+    }
+  }
+
+  // Two-step confirm rather than window.confirm: no modal, and the button says
+  // what the second click will do.
+  function arm(btn, label, action) {
+    let armed = false;
+    let timer = null;
+    btn.addEventListener('click', async () => {
+      if (!armed) {
+        armed = true;
+        btn.textContent = 'Click again to confirm';
+        btn.classList.add('danger');
+        timer = setTimeout(() => {
+          armed = false;
+          btn.textContent = label;
+          btn.classList.remove('danger');
+        }, 4000);
+        return;
+      }
+      clearTimeout(timer);
+      armed = false;
+      btn.classList.remove('danger');
+      btn.disabled = true;
+      btn.textContent = 'Working…';
+      try {
+        await action();
+        await loadActivity();
+        $('activityNote').textContent = `${label} — done ${when(new Date().toISOString())}`;
+      } catch (err) {
+        $('activityNote').textContent = err.message;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = label;
+      }
+    });
   }
 
   async function loadStats() {
@@ -457,13 +547,16 @@
     try {
       await api(`/api/admin/submissions/${openId}`, { method: 'DELETE' });
       closeDrawer();
-      await Promise.all([loadStats(), loadSubmissions()]);
+      await Promise.all([loadStats(), loadSubmissions(), loadActivity()]);
     } catch (err) {
       fail(err);
     }
   });
 
   // ---------- wiring ----------
+
+  arm($('resetCounters'), 'Reset counters to zero', () => api('/api/admin/counters/reset', { method: 'POST' }));
+  arm($('clearVisitors'), 'Clear visitor list', () => api('/api/admin/visitors', { method: 'DELETE' }));
 
   $('statsRange').addEventListener('change', loadStats);
   $('applyFilters').addEventListener('click', () => { state.offset = 0; loadSubmissions(); });

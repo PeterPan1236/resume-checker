@@ -48,7 +48,7 @@
         <div class="step-block">
           <div class="step">
             <span class="step-num">1</span>
-            <span class="step-label">Target the review</span>
+            <h2 class="step-label">Target the review</h2>
             <span class="step-hint">Role and level change both the scoring rubric and the advice.</span>
           </div>
           <div class="row">
@@ -66,16 +66,16 @@
         <div class="step-block">
           <div class="step">
             <span class="step-num">2</span>
-            <span class="step-label">Provide the resume</span>
-            <span class="step-hint">Nothing is stored — the file is parsed in memory and discarded.</span>
+            <h2 class="step-label">Provide the resume</h2>
+            <span class="step-hint">Upload a file or paste the text — whichever you have.</span>
           </div>
 
-          <div class="tabs" role="tablist">
-            <button type="button" class="tab active" data-mode="file" role="tab" aria-selected="true">Upload file</button>
-            <button type="button" class="tab" data-mode="text" role="tab" aria-selected="false">Paste text</button>
+          <div class="tabs" role="tablist" aria-label="How to provide the resume">
+            <button type="button" class="tab active" data-mode="file" role="tab" id="tab-resume-file" aria-controls="mode-file" aria-selected="true" tabindex="0">Upload file</button>
+            <button type="button" class="tab" data-mode="text" role="tab" id="tab-resume-text" aria-controls="mode-text" aria-selected="false" tabindex="-1">Paste text</button>
           </div>
 
-          <div id="mode-file" class="mode">
+          <div id="mode-file" class="mode" role="tabpanel" aria-labelledby="tab-resume-file">
             <label id="drop" class="drop">
               <input type="file" id="resume" name="resume" accept=".pdf,.docx,.doc,.txt,.md">
               <strong>Drop a resume here, or click to browse</strong>
@@ -84,7 +84,8 @@
             </label>
           </div>
 
-          <div id="mode-text" class="mode hidden">
+          <div id="mode-text" class="mode hidden" role="tabpanel" aria-labelledby="tab-resume-text">
+            <label for="text" class="sr-only">Resume text</label>
             <textarea id="text" name="text" rows="12" placeholder="Paste the full text of the resume here…"></textarea>
           </div>
 
@@ -97,20 +98,21 @@
         <div class="step-block">
           <div class="step">
             <span class="step-num">3</span>
-            <span class="step-label">Add the job posting</span>
+            <h2 class="step-label">Add the job posting</h2>
             <span class="step-hint">Optional — every stated requirement gets checked against the resume, one by one.</span>
           </div>
 
-          <div class="tabs" role="tablist">
-            <button type="button" class="tab active" data-jd-mode="text" role="tab" aria-selected="true">Paste text</button>
-            <button type="button" class="tab" data-jd-mode="file" role="tab" aria-selected="false">Upload file</button>
+          <div class="tabs" role="tablist" aria-label="How to provide the job posting">
+            <button type="button" class="tab active" data-jd-mode="text" role="tab" id="tab-jd-text" aria-controls="jd-mode-text" aria-selected="true" tabindex="0">Paste text</button>
+            <button type="button" class="tab" data-jd-mode="file" role="tab" id="tab-jd-file" aria-controls="jd-mode-file" aria-selected="false" tabindex="-1">Upload file</button>
           </div>
 
-          <div id="jd-mode-text" class="mode">
+          <div id="jd-mode-text" class="mode" role="tabpanel" aria-labelledby="tab-jd-text">
+            <label for="jobDescription" class="sr-only">Job posting text</label>
             <textarea id="jobDescription" name="jobDescription" rows="6" placeholder="Paste the posting being applied to…"></textarea>
           </div>
 
-          <div id="jd-mode-file" class="mode hidden">
+          <div id="jd-mode-file" class="mode hidden" role="tabpanel" aria-labelledby="tab-jd-file">
             <label id="jd-drop" class="drop">
               <input type="file" id="jdFile" name="jobDescriptionFile" accept=".pdf,.docx,.doc,.txt,.md">
               <strong>Drop the job posting here, or click to browse</strong>
@@ -130,10 +132,6 @@
           </label>
           <button type="submit" class="primary" id="submit">Run the check</button>
         </div>
-        <p class="panel-note storage-note">
-          Submitted resumes and job descriptions are stored with their report so the
-          operator of this site can review them.
-        </p>
         <p id="error" class="error hidden"></p>
       </form>
     </section>

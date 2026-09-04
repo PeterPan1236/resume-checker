@@ -4,6 +4,8 @@ import { deepAnalyze } from '../lib/analyze.js';
 import { listJobs, listSeniority, JOB_PROFILES, SENIORITY } from '../lib/jobs.js';
 import { buildSubmission, saveSubmission } from '../lib/store.js';
 import { handleAdmin, isAdminPath } from '../lib/admin.js';
+import { generateCoverLetter } from '../lib/cover-letter.js';
+import { recordActivation } from '../lib/metrics.js';
 import sampleResume from '../sample-resume.txt';
 import sampleJobDescription from '../sample-job-description.txt';
 
@@ -14,6 +16,16 @@ function json(body, status = 200) {
     status,
     headers: { 'content-type': 'application/json; charset=utf-8' }
   });
+}
+
+// Cloudflare populates CF-Connecting-IP with the true client address; the
+// x-forwarded-for fallback only matters for wrangler dev.
+function clientIp(request) {
+  return (
+    request.headers.get('cf-connecting-ip') ||
+    (request.headers.get('x-forwarded-for') || '').split(',')[0].trim() ||
+    null
+  );
 }
 
 async function fileToBuffer(file) {
@@ -110,7 +122,11 @@ async function handleCheck(request, env, ctx) {
     ctx.waitUntil(write);
   }
 
-  return json({ meta, rules: rulesOut, analysis, analysisError });
+  ctx.waitUntil(recordActivation(env.DB, { name: 'check_run', ip: clientIp(request) }));
+
+  // resumeText goes back so the cover letter can be generated without a
+  // re-upload and without reading stored data back out of the database.
+  return json({ meta, rules: rulesOut, analysis, analysisError, resumeText: text });
 }
 
 export default {
@@ -133,6 +149,27 @@ export default {
 
       if (url.pathname === '/api/check' && request.method === 'POST') {
         return await handleCheck(request, env, ctx);
+      }
+
+      if (url.pathname === '/api/cover-letter' && request.method === 'POST') {
+        const body = await request.json().catch(() => ({}));
+        const jobId = JOB_PROFILES[body?.jobId] ? body.jobId : 'general';
+        const seniority = SENIORITY[body?.seniority] ? body.seniority : 'mid';
+        const text = (body?.text || '').trim();
+        const jobDescription = (body?.jobDescription || '').slice(0, 12000);
+        const evidence = Array.isArray(body?.evidence) ? body.evidence.slice(0, 6) : [];
+
+        if (text.length < 80) {
+          return json({ error: 'Run a check first — the cover letter is written from your resume.' }, 400);
+        }
+
+        try {
+          const letter = await generateCoverLetter({ text, jobId, seniority, jobDescription, evidence });
+          ctx.waitUntil(recordActivation(env.DB, { name: 'cover_letter_run', ip: clientIp(request) }));
+          return json({ letter });
+        } catch (err) {
+          return json({ error: err.message || 'Cover letter generation failed.' }, 502);
+        }
       }
 
       if (isAdminPath(url.pathname)) {

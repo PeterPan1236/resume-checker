@@ -49,6 +49,21 @@
 
     <section class="panel">
       <div class="panel-head">
+        <h2>Activity</h2>
+        <p class="panel-note">Button activations and distinct visitor addresses. Counted in their own tables, so pruning stored submissions never changes these numbers.</p>
+      </div>
+      <div id="activityTiles" class="tiles"></div>
+      <div class="activity-actions">
+        <button id="resetCounters" class="ghost" type="button">Reset counters to zero</button>
+        <button id="clearVisitors" class="ghost" type="button">Clear visitor list</button>
+        <span id="activityNote" class="panel-note"></span>
+      </div>
+      <h3 class="activity-head">Unique visitors</h3>
+      <div id="visitorTable" class="table-scroll"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
         <h2>Overview</h2>
         <p class="panel-note">Aggregates across stored submissions.</p>
         <span class="topbar-spacer"></span>

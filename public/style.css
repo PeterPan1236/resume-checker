@@ -6,12 +6,12 @@
   --line-soft: #eef2f7;
   --text: #10192b;
   --muted: #5d6b81;
-  --faint: #8a97aa;
+  --faint: #5f6c80;
   --accent: #1b3a6b;
   --accent-soft: #e7edf6;
-  --good: #0f9d58;
+  --good: #0a7d45;
   --good-soft: #e6f5ec;
-  --ok: #b7791f;
+  --ok: #8a5a12;
   --ok-soft: #fdf3e0;
   --bad: #c62828;
   --bad-soft: #fdeaea;
@@ -28,7 +28,7 @@
     --line-soft: #1f2733;
     --text: #e7ecf3;
     --muted: #98a4b6;
-    --faint: #6f7d92;
+    --faint: #8b98ac;
     --accent: #86a9dd;
     --accent-soft: #16233a;
     --good: #3ecf8e;
@@ -113,7 +113,8 @@ h3.section { margin: 0; font-size: 16.5px; letter-spacing: -.015em; font-weight:
   background: var(--accent-soft); color: var(--accent);
   display: grid; place-content: center; font-size: 11.5px; font-weight: 700;
 }
-.step-label { font-size: 13px; font-weight: 650; letter-spacing: .01em; }
+/* Now an <h2> for screen-reader navigation; the reset keeps it looking identical. */
+.step-label { font-size: 13px; font-weight: 650; letter-spacing: .01em; margin: 0; line-height: inherit; }
 .step-hint { color: var(--faint); font-size: 12.5px; font-weight: 400; }
 .step-block + .step-block { margin-top: 26px; padding-top: 24px; border-top: 1px solid var(--line-soft); }
 
@@ -143,7 +144,10 @@ select:focus, textarea:focus, .tab:focus-visible, button:focus-visible {
 }
 .tab {
   background: transparent; border: 0; color: var(--muted);
-  padding: 7px 15px; border-radius: 7px; cursor: pointer; font: inherit; font-size: 13.5px; font-weight: 600;
+  /* 44px minimum hit target (Apple HIG); the visual pill stays compact via
+     the smaller line-height, so only the touch area grows. */
+  min-height: 44px; padding: 7px 16px; border-radius: 8px;
+  cursor: pointer; font: inherit; font-size: 13.5px; font-weight: 600;
 }
 .tab.active { background: var(--panel); color: var(--text); box-shadow: 0 1px 2px rgba(16,25,43,.12); }
 
@@ -161,8 +165,11 @@ select:focus, textarea:focus, .tab:focus-visible, button:focus-visible {
 .filename { color: var(--accent); font-weight: 650; margin-top: 8px; font-size: 13.5px; }
 .drop-alt { margin: 10px 0 0; font-size: 13px; color: var(--faint); text-align: center; }
 .linkbtn {
-  background: none; border: 0; padding: 0; font: inherit; font-size: 13px; font-weight: 600;
+  background: none; border: 0; font: inherit; font-size: 13px; font-weight: 600;
   color: var(--accent); cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
+  /* Inline vertical padding lifts the hit area toward 44px without shifting
+     the surrounding sentence. */
+  padding: 12px 2px; margin: -12px 0;
 }
 
 .actions {
@@ -202,3 +209,135 @@ button.ghost:hover { border-color: var(--accent); color: var(--accent); }
 
 
 .storage-note { margin-top: 12px; }
+
+/* --- cover letter ---------------------------------------------------------- */
+
+#cover-letter-panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 22px 24px;
+  margin-bottom: 18px;
+}
+
+.letter-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+  border-bottom: 1px solid var(--line-soft);
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+}
+.letter-head h3 { margin: 0; font-size: 17px; letter-spacing: -.01em; }
+
+.letter-count {
+  font-size: 12px;
+  color: var(--good);
+  background: var(--good-soft);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.letter-count.over { color: var(--ok); background: var(--ok-soft); }
+
+.letter-warn {
+  font-size: 12.5px;
+  color: var(--ok);
+  background: var(--ok-soft);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+/* The letter is the one thing on the page meant to be read as a document, so it
+   gets document measure and leading rather than the UI's. */
+.letter-body { max-width: 62ch; }
+.letter-body p { margin: 0 0 13px; line-height: 1.65; }
+.letter-greeting, .letter-signoff { color: var(--muted); }
+.letter-signoff { margin-top: 4px; }
+
+.letter-check {
+  margin-top: 18px;
+  padding: 12px 14px;
+  background: var(--ok-soft);
+  border-left: 3px solid var(--ok);
+  border-radius: 0 6px 6px 0;
+  font-size: 13.5px;
+}
+.letter-check strong { display: block; margin-bottom: 6px; color: var(--ok); }
+.letter-check ul { margin: 0; padding-left: 18px; }
+.letter-check li { margin-bottom: 4px; }
+
+.letter-tools {
+  display: flex;
+  gap: 8px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.letter-loading { color: var(--muted); margin: 0; }
+.letter-error { color: var(--bad); background: var(--bad-soft); padding: 10px 12px; border-radius: 6px; margin: 0; }
+
+@media print {
+  .letter-tools, #cover-letter { display: none; }
+}
+
+/* --- accessibility baseline ------------------------------------------------ */
+
+/* One visible focus ring for every interactive element. The previous rule
+   covered selects, textareas and buttons only, so links, file inputs, the
+   checkbox and the tabs had no keyboard affordance at all. */
+a:focus-visible,
+input:focus-visible,
+label.check:focus-within,
+.drop:focus-within,
+.linkbtn:focus-visible,
+[role="tab"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* The checkbox ships at 13px, well under a usable target. Grow the control and
+   let the whole label be clickable. */
+.check input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+  flex: none;
+  cursor: pointer;
+}
+label.check {
+  min-height: 44px;
+  cursor: pointer;
+}
+
+/* Visually hidden, still announced. Used for the textarea labels, which
+   previously had only a placeholder — no accessible name once text is typed. */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Honour the system setting: the spinner and every transition stop animating
+   rather than being merely faster. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .spinner { animation: none; border-top-color: var(--accent); }
+}
+
+/* Form controls sat at 43px — one pixel under the 44px minimum. */
+select, input[type="file"], .field input, .field select {
+  min-height: 44px;
+}

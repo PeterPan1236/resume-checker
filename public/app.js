@@ -49,34 +49,56 @@ async function loadOptions() {
     .join('');
 }
 
-function setMode(next) {
-  mode = next;
-  document.querySelectorAll('.tab').forEach((t) => {
-    const on = t.dataset.mode === next;
+// Roving tabindex: only the selected tab is in the tab order, and arrow keys
+// move between them. Required by the tablist pattern the markup declares.
+function syncTabs(selector, key, next) {
+  document.querySelectorAll(selector).forEach((t) => {
+    const on = t.dataset[key] === next;
     t.classList.toggle('active', on);
     t.setAttribute('aria-selected', String(on));
+    t.tabIndex = on ? 0 : -1;
   });
+}
+
+function setMode(next) {
+  mode = next;
+  // Scoped to [data-mode]: querying '.tab' also matched the job-posting tabs and
+  // silently cleared their selected state.
+  syncTabs('[data-mode]', 'mode', next);
   $('mode-file').classList.toggle('hidden', next !== 'file');
   $('mode-text').classList.toggle('hidden', next !== 'text');
 }
 
 function setJdMode(next) {
   jdMode = next;
-  document.querySelectorAll('[data-jd-mode]').forEach((t) => {
-    const on = t.dataset.jdMode === next;
-    t.classList.toggle('active', on);
-    t.setAttribute('aria-selected', String(on));
-  });
+  syncTabs('[data-jd-mode]', 'jdMode', next);
   $('jd-mode-text').classList.toggle('hidden', next !== 'text');
   $('jd-mode-file').classList.toggle('hidden', next !== 'file');
 }
 
-document.querySelectorAll('[data-mode]').forEach((tab) => {
-  tab.addEventListener('click', () => setMode(tab.dataset.mode));
-});
-document.querySelectorAll('[data-jd-mode]').forEach((tab) => {
-  tab.addEventListener('click', () => setJdMode(tab.dataset.jdMode));
-});
+// Left/Right/Home/End move between tabs and activate the one landed on, which is
+// the expected behaviour for a tablist with immediate activation.
+function wireTabKeys(selector, apply, key) {
+  const tabs = [...document.querySelectorAll(selector)];
+  tabs.forEach((tab) => {
+    tab.addEventListener('click', () => apply(tab.dataset[key]));
+    tab.addEventListener('keydown', (e) => {
+      const i = tabs.indexOf(tab);
+      let target = null;
+      if (e.key === 'ArrowRight') target = tabs[(i + 1) % tabs.length];
+      else if (e.key === 'ArrowLeft') target = tabs[(i - 1 + tabs.length) % tabs.length];
+      else if (e.key === 'Home') target = tabs[0];
+      else if (e.key === 'End') target = tabs[tabs.length - 1];
+      if (!target) return;
+      e.preventDefault();
+      apply(target.dataset[key]);
+      target.focus();
+    });
+  });
+}
+
+wireTabKeys('[data-mode]', setMode, 'mode');
+wireTabKeys('[data-jd-mode]', setJdMode, 'jdMode');
 
 // Wires a drop zone to its file input and filename label.
 function wireDrop(dropId, inputId, labelId) {
@@ -356,7 +378,9 @@ function render(data) {
   $('results').innerHTML = `<div class="report-tools">
       <button type="button" class="ghost" id="copy-report">Copy summary</button>
       <button type="button" class="ghost" id="print-report">Print / PDF</button>
-    </div>` + renderReport(data);
+      <button type="button" class="primary" id="cover-letter">Write a cover letter</button>
+    </div>
+    <div id="cover-letter-panel" class="hidden"></div>` + renderReport(data);
   $('results').classList.remove('hidden');
 
   $('print-report').addEventListener('click', () => window.print());
@@ -372,7 +396,99 @@ function render(data) {
     }
   });
 
+  $('cover-letter').addEventListener('click', requestCoverLetter);
+
   $('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// --- cover letter -----------------------------------------------------------
+
+function coverLetterText(l) {
+  return [l.greeting, '', l.opening, '', ...(l.body || []).flatMap((p) => [p, '']), l.closing, '', l.signoff, l.name]
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function renderCoverLetter(l) {
+  const panel = $('cover-letter-panel');
+  const paras = [l.opening, ...(l.body || []), l.closing].filter(Boolean);
+
+  panel.innerHTML = `
+    <div class="letter-head">
+      <h3>Cover letter</h3>
+      <span class="letter-count${l.overLimit ? ' over' : ''}">${l.words} words</span>
+      ${l.usedJobDescription ? '' : '<span class="letter-warn">No job description — written to the role profile only</span>'}
+    </div>
+    <div class="letter-body">
+      <p class="letter-greeting">${esc(l.greeting)}</p>
+      ${paras.map((p) => `<p>${esc(p)}</p>`).join('')}
+      <p class="letter-signoff">${esc(l.signoff)}<br>${esc(l.name || '')}</p>
+    </div>
+    ${
+      (l.assumptions || []).length
+        ? `<div class="letter-check">
+             <strong>Check before sending</strong>
+             <ul>${l.assumptions.map((a) => `<li>${esc(a)}</li>`).join('')}</ul>
+           </div>`
+        : ''
+    }
+    <div class="letter-tools">
+      <button type="button" class="ghost" id="copy-letter">Copy letter</button>
+      <button type="button" class="ghost" id="regen-letter">Write another</button>
+    </div>`;
+
+  panel.classList.remove('hidden');
+
+  $('copy-letter').addEventListener('click', async () => {
+    const btn = $('copy-letter');
+    try {
+      await navigator.clipboard.writeText(coverLetterText(l));
+      btn.textContent = 'Copied';
+    } catch {
+      btn.textContent = 'Copy failed';
+    }
+    setTimeout(() => { btn.textContent = 'Copy letter'; }, 1800);
+  });
+  $('regen-letter').addEventListener('click', requestCoverLetter);
+}
+
+async function requestCoverLetter() {
+  if (!lastReport) return;
+  const btn = $('cover-letter');
+  const panel = $('cover-letter-panel');
+
+  btn.disabled = true;
+  btn.textContent = 'Writing…';
+  panel.classList.remove('hidden');
+  panel.innerHTML = '<p class="letter-loading">Drafting a short letter from your resume…</p>';
+
+  // Lean on the strongest evidence the screen already found, so the letter
+  // argues the same things the report told the user were working.
+  const a = lastReport.analysis;
+  const evidence = [a?.verdict?.strongestAsset, ...(a?.roleFit?.evidenceFor || [])].filter(Boolean).slice(0, 6);
+
+  try {
+    const res = await fetch('/api/cover-letter', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        text: lastReport.resumeText || '',
+        jobId: $('jobId').value,
+        seniority: $('seniority').value,
+        jobDescription: jdMode === 'file' ? '' : $('jobDescription').value,
+        evidence
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Cover letter generation failed.');
+    renderCoverLetter(data.letter);
+  } catch (err) {
+    panel.innerHTML = `<p class="letter-error">${esc(err.message)}</p>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Write a cover letter';
+  }
 }
 
 loadOptions();
