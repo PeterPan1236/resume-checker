@@ -70,20 +70,46 @@ visitors reads 1 no matter how many checks you run.
 The admin token alone allows unlimited guesses, so failed authentications are
 counted per address in `admin_attempts` (`migrations/0003_admin_attempts.sql`).
 
-- Five failures inside a fifteen-minute window locks the address out for fifteen
-  minutes. The lockout doubles for each further failure, capped at one hour.
-- The lock is checked **before** the token, so a locked-out caller learns nothing
+- A small number of failures inside a short window locks the address out. The
+  lock is checked **before** the token, so a locked-out caller learns nothing
   about whether its guess was correct — the correct token gets 429 too.
 - A successful authentication clears that address's history.
 - Responses carry `Retry-After`; a 401 reports `attemptsRemaining` so an honest
   typo is recoverable rather than mysterious.
 - `GET /api/admin/lockouts` lists current and recent lockouts.
 
-Tunable with `ADMIN_MAX_FAILURES`, `ADMIN_LOCKOUT_MS` and `ADMIN_WINDOW_MS`.
+Thresholds are set by `ADMIN_MAX_FAILURES`, `ADMIN_LOCKOUT_MS` and
+`ADMIN_WINDOW_MS`; the defaults live in `lib/rate-limit.js`. Raise the window
+above the lockout if you want repeat offenders held longer — with the two equal,
+a record goes stale exactly as its lockout expires and the count restarts.
 
 Rate limiting **fails open**: a storage error skips the check rather than locking
 every administrator out. The token is still required, so an open failure costs
 rate limiting, not authentication.
+
+## Security and data handling
+
+Read this before deploying a copy.
+
+- **Submissions are personal data.** Every check stores the resume text and the
+  job description in full, alongside the report. Treat the `submissions` table as
+  PII and the D1 database as a system of record, not a cache.
+- **`ADMIN_TOKEN` is the only thing protecting it.** There is no user account
+  system: anyone holding that token can read every stored resume. Use a long
+  random value, set it with `wrangler secret put`, and never reuse the value you
+  develop with. Without the variable set, the admin API stays shut.
+- **Visitor addresses are retained** for the unique-visitor count. In most
+  jurisdictions an IP address is personal data on its own.
+- **`TRUST_PROXY` is off by default and should stay off** unless a proxy you
+  control sits in front. With it on, `X-Forwarded-For` is caller-controlled, so
+  both the visitor list and the per-address rate limiting can be spoofed.
+- **This repository is public.** Nothing secret is committed — `.gitignore`
+  covers `.env`, `.dev.vars` and `data/` — but the source discloses the whole
+  design, including the rate-limiting defaults. Security here rests on the token
+  and the limiter, not on any of it being unknown.
+- **There is no privacy notice in the UI.** If you run this for anyone but
+  yourself, add one and decide a retention period. `RETENTION_LIMIT` caps the
+  table at a row count, which is not the same as a deletion policy.
 
 ## Deploy (Cloudflare Workers)
 
